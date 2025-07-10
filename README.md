@@ -1,123 +1,104 @@
-# PhysAI - Natural Language Robot Control
+# PhysicalAI ROS2 + Gemini + TurtleBot3 Simulation
 
-ROS2とGemini AIを統合した自然言語ロボット制御システム
+## 概要
 
-## 🚀 使用方法
+このプロジェクトは、Google Gemini APIとROS2を連携し、自然言語でTurtleBot3やturtlesimを制御できるシミュレーション環境をDocker上で提供します。
 
-### 1. 環境設定
+- Gemini APIによる自然言語→JSONコマンド変換
+- ROS2ノードによるコマンド解釈・ロボット制御
+- noVNC経由でGUIデスクトップにアクセス
+- TurtleBot3やturtlesimのシミュレーション
+
+---
+
+## セットアップ手順
+
+### 1. 必要ファイルの準備
+- `.env` : Gemini APIキーなどを記載（例: `GEMINI_API_KEY=...`）
+- `ai_config.json` : モデル名・システムプロンプトをJSONで管理
+
+### 2. Dockerイメージのビルド
 ```bash
-# Gemini API キーを設定
-cp .env_example .env
-# .envファイルにGEMINI_API_KEYを設定してください
+# プロジェクトルートで
+docker-compose build --no-cache
 ```
 
-### 2. システム起動
+### 3. コンテナの起動
 ```bash
-docker-compose up --build
+docker-compose up
 ```
 
-起動には数分かかります。以下のメッセージが表示されるまでお待ちください：
-```
-🚀 PhysAI Robot Control System Ready!
-🌐 Web Access: http://localhost:6080/vnc.html
-🤖 Robot Control: Ready for natural language commands
-```
+### 4. noVNCでデスクトップにアクセス
+- ブラウザで `http://localhost:6080` にアクセス
+- LXTerminal等でターミナルを開く
 
-### 3. ブラウザアクセス
-http://localhost:6080/vnc.html にアクセス
-- **VNCパスワード不要**
-- Gazebo シミュレーターでTurtleBot3が表示されます
-
-### 4. 自然言語でロボット制御
-新しいターミナルでコンテナに接続：
+### 5. ROS2環境のセットアップ
+- 新しいターミナルごとに必ず:
 ```bash
-docker exec -it ros2_gazebo_container bash
-cd /home/vscode/ros2_ws
-source /opt/ros/humble/setup.bash
-source install/setup.bash
-
-# 自然言語コマンドの例
-ros2 run physics_ai gemini_json_publisher "前に進んで"
-ros2 run physics_ai gemini_json_publisher "左に回転して3秒間"
-ros2 run physics_ai gemini_json_publisher "右に曲がって5秒間"
-ros2 run physics_ai gemini_json_publisher "停止"
-ros2 run physics_ai gemini_json_publisher "後ろに下がって"
+source ~/ros2_ws/install/setup.bash
 ```
 
-## 🛠️ システム構成
+---
 
-- **ROS2 Humble**: ロボット制御フレームワーク
-- **TurtleBot3**: シミュレーションロボット  
-- **Gazebo**: 物理シミュレーション環境
-- **Gemini AI**: 自然言語処理
-- **noVNC**: ブラウザベースのGUIアクセス
-- **Docker**: コンテナ化環境
+## ノードの起動例
 
-## 🏗️ アーキテクチャ
-
-```
-自然言語入力 → Gemini AI → JSON変換 → ROS2 Topic → TurtleBot3制御
-```
-
-1. **gemini_json_publisher**: 自然言語をGemini AIでJSONコマンドに変換
-2. **json_command_interpreter**: JSONコマンドをROS2のcmd_velトピックに変換
-3. **TurtleBot3**: Gazebo内でロボットが実際に動作
-
-## 📁 プロジェクト構造
-
-```
-physAI-Final/
-├── .devcontainer/
-│   ├── Dockerfile              # Docker環境設定
-│   └── scripts/                # 起動スクリプト
-│       ├── start_vnc.sh        # VNC環境起動
-│       ├── start_turtlebot3.sh # TurtleBot3起動
-│       └── start_system.sh     # 全システム起動
-├── ros2_ws/                    # ROS2ワークスペース
-│   ├── src/
-│   │   ├── physics_ai/             # ROS2パッケージ
-│   │   └── resource/               # パッケージリソース
-│   ├── package.xml
-│   └── setup.py
-├── docker-compose.yaml         # Docker Compose設定
-├── prompt.txt                  # Gemini AI用プロンプト
-├── .env_example
-└── README.md
-```
-
-## 🐛 トラブルシューティング
-
-### Gazeboが起動しない場合
+### 1. turtlesimノード
 ```bash
-# コンテナ内で手動起動
-export TURTLEBOT3_MODEL=waffle
-ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py
+ros2 run turtlesim turtlesim_node
 ```
 
-### 自然言語コマンドが反応しない場合
+### 2. コマンド解釈ノード
 ```bash
-# JSONコマンドインタープリターの状態確認
-ros2 topic list | grep robot_commands_json
-ros2 topic echo /robot_commands_json
+ros2 run physics_ai json_command_interpreter
 ```
 
-### VNCに接続できない場合
-- ポート6080が他のプロセスで使用されていないか確認
-- ファイアウォール設定を確認
-
-## 🔧 開発者向け情報
-
-### パッケージのビルド
+### 3. Gemini連携ノード（自然言語→JSON）
 ```bash
-cd /home/vscode/ros2_ws
-colcon build --packages-select physics_ai
-source install/setup.bash
+ros2 run physics_ai gemini_json_publisher
 ```
+- インタラクティブモードで「Enter your command for the robot:」と表示されます。
+- 例: `ジグザグに動かして` などと入力
 
-### ログ確認
-```bash
-ros2 node list
-ros2 topic list
-ros2 log show gemini_json_publisher
-ros2 log show json_command_interpreter
-```
+---
+
+## Gemini API連携の仕組み
+
+- `ai_config.json` でモデル名・システムプロンプトを一元管理
+- Gemini APIはJSONモードで呼び出し、返答にコードブロックが混ざっても自動で除去
+- 生成されたJSONコマンドは `/robot_commands_json` トピックにパブリッシュ
+- `json_command_interpreter` ノードがJSON配列を順次解釈し、Twistメッセージでロボットを制御
+
+---
+
+## トラブルシューティング
+
+- **No executable found**
+  - `colcon build --symlink-install` 後、`source ~/ros2_ws/install/setup.bash` を必ず実行
+  - `lib/physics_ai/` ディレクトリが無い場合は自動でシンボリックリンクが作成される（Dockerfileで対応済み）
+- **Permission denied**
+  - `ros2_ws`ディレクトリの権限を`ubuntu:ubuntu`に修正（Dockerfileで自動化済み）
+- **Geminiの返答がパースできない**
+  - JSONモード＋コードブロック除去で堅牢に対応済み
+- **ノード間通信ができない**
+  - トピック名・型・source忘れ・ノード起動状態を最優先で確認
+
+---
+
+## 知見・ルールまとめ
+
+- AI設定やプロンプトはJSONで一元管理し、運用・拡張性を高める
+- Gemini APIはJSONモード＋前処理で堅牢にパース
+- ノード追加・修正時は必ず再ビルド・source
+- ノードごとに新しいターミナルを開き、毎回sourceを忘れずに
+- Dockerfileで権限修正・シンボリックリンク作成を自動化し、運用トラブルを未然に防ぐ
+- セキュリティ上、.envやAPIキーは.gitignore/.dockerignoreで管理
+
+---
+
+## 参考
+- [Gemini API 公式ドキュメント](https://ai.google.dev/gemini-api/docs?hl=ja)
+- [ROS2公式ドキュメント](https://docs.ros.org/en/)
+
+---
+
+何か問題があれば、エラーメッセージや状況を添えてご相談ください！

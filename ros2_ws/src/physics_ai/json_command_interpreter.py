@@ -24,35 +24,42 @@ class JsonCommandInterpreter(Node):
             if not isinstance(commands, list):
                 commands = [commands]
             for idx, command in enumerate(commands):
-                command_type = command.get('command_type')
-                parameters = command.get('parameters', {})
-                if command_type == 'turn':
-                    angle_deg = float(parameters.get('angle_deg', 0.0))
-                    # turtlesim: 1.0 rad/s で回すと仮定し、角度から時間を計算
-                    angular_speed = 1.0  # [rad/s]
-                    angle_rad = angle_deg * 3.14159265 / 180.0
-                    duration = abs(angle_rad / angular_speed)
-                    twist = Twist()
-                    twist.angular.z = angular_speed if angle_rad > 0 else -angular_speed
-                    self.get_logger().info(f'[{idx}] turn: {angle_deg}deg ({angle_rad:.2f}rad), duration={duration:.2f}s')
-                    self._publish_for_duration(twist, duration)
-                elif command_type == 'move':
-                    distance = float(parameters.get('distance_m', 0.0))
-                    linear_speed = 1.0  # [m/s]
-                    duration = abs(distance / linear_speed)
-                    twist = Twist()
-                    twist.linear.x = linear_speed if distance > 0 else -linear_speed
-                    self.get_logger().info(f'[{idx}] move: {distance}m, duration={duration:.2f}s')
-                    self._publish_for_duration(twist, duration)
-                elif command_type == 'stop':
-                    duration = float(parameters.get('duration_s', 0.5))
-                    twist = Twist()  # 0速度
-                    self.get_logger().info(f'[{idx}] stop: {duration}s')
-                    self._publish_for_duration(twist, duration)
+                command_type = command.get("action")
+                if command_type == "move":
+                    distance = command.get("distance", 0)
+                    self.move(distance)
+                elif command_type == "turn":
+                    angle = command.get("angle", 0)
+                    self.turn(angle)
+                elif command_type == "stop":
+                    self.stop()
                 else:
-                    self.get_logger().warn(f'Unknown command_type: {command_type}')
+                    self.get_logger().warn(f"Unknown action: {command_type}")
         except Exception as e:
             self.get_logger().error(f'Error processing JSON commands: {e}')
+
+    def move(self, distance):
+        twist = Twist()
+        linear_speed = 1.0  # m/s
+        duration = abs(distance / linear_speed)
+        twist.linear.x = linear_speed if distance > 0 else -linear_speed
+        self.get_logger().info(f"move: {distance}m, duration={duration:.2f}s")
+        self._publish_for_duration(twist, duration)
+
+    def turn(self, angle):
+        twist = Twist()
+        angular_speed = 1.0  # rad/s
+        angle_rad = angle * 3.14159265 / 180.0
+        duration = abs(angle_rad / angular_speed)
+        twist.angular.z = angular_speed if angle_rad > 0 else -angular_speed
+        self.get_logger().info(f"turn: {angle}deg ({angle_rad:.2f}rad), duration={duration:.2f}s")
+        self._publish_for_duration(twist, duration)
+
+    def stop(self):
+        twist = Twist()
+        duration = 0.5
+        self.get_logger().info("stop")
+        self._publish_for_duration(twist, duration)
 
     def _publish_for_duration(self, twist, duration):
         start_time = time.time()

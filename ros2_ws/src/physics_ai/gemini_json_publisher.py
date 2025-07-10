@@ -7,6 +7,8 @@ import os
 import sys
 import json # JSONのバリデーション用
 from dotenv import load_dotenv
+import re
+import time
 
 # 追加: AI設定の読み込み関数
 def load_ai_config(config_path="../ai_config.json"):
@@ -17,6 +19,23 @@ def load_ai_config(config_path="../ai_config.json"):
     except Exception as e:
         print(f"[ERROR] ai_config.jsonの読み込みに失敗: {e}")
         return "gemini-2.5-flash", ""
+
+# コードブロックからJSONだけを抽出する関数
+def extract_json_from_codeblock(text):
+    match = re.search(r"```json\\s*(.*?)\\s*```", text, re.DOTALL)
+    if match:
+        return match.group(1)
+    # それ以外はそのまま返す
+    return text
+
+# ai_config.jsonの読み込み部分を拡張
+with open('ai_config.json', 'r', encoding='utf-8') as f:
+    ai_config = json.load(f)
+    model_name = ai_config.get('model', '')
+    system_prompt = ai_config.get('system_prompt', '')
+    preprocess_model = ai_config.get('preprocess_model', '')
+    preprocess_prompt = ai_config.get('preprocess_prompt', '')
+
 
 class GeminiJsonPublisher(Node):
     def __init__(self):
@@ -32,13 +51,41 @@ class GeminiJsonPublisher(Node):
             raise ValueError("GEMINI_API_KEY is not set.")
         
         # ai_config.jsonからモデル名とシステムプロンプトを取得
-        self.gemini_model_name, self.system_prompt = load_ai_config(os.path.join(os.path.dirname(__file__), '../../ai_config.json'))
+        self.gemini_model_name, self.system_prompt = load_ai_config()
+        # system_promptをTurtleBot3/turtlesim命令に限定
+        self.system_prompt = (
+            "あなたはロボット制御AIです。"
+            "与えられた『具体的な動作説明（自然言語）』を、必ずTurtleBot3やturtlesimで処理できるJSON命令列に変換してください。"
+            "使える命令は以下のみです：\n"
+            "- {\"action\": \"move\", \"distance\": 距離（m, float）}\n"
+            "- {\"action\": \"turn\", \"angle\": 角度（度, float。正:右回転、負:左回転）}\n"
+            "- {\"action\": \"stop\"}\n"
+            "説明や解説、コードブロックは不要です。JSON配列のみを出力してください。\n"
+            "【例】\n"
+            "入力文：右に15度回転して1メートル進み、左に30度回転して1メートル進む動作を4回繰り返す\n"
+            "出力：\n[\n  {\"action\": \"turn\", \"angle\": 15},\n  {\"action\": \"move\", \"distance\": 1.0},\n  {\"action\": \"turn\", \"angle\": -30},\n  {\"action\": \"move\", \"distance\": 1.0},\n  {\"action\": \"turn\", \"angle\": 15},\n  {\"action\": \"move\", \"distance\": 1.0},\n  {\"action\": \"turn\", \"angle\": -30},\n  {\"action\": \"move\", \"distance\": 1.0}\n]"
+        )
+        # preprocess_model, preprocess_promptもセット
+        with open('ai_config.json', 'r', encoding='utf-8') as f:
+            ai_config = json.load(f)
+            self.preprocess_model = ai_config.get('preprocess_model', '')
+            self.preprocess_prompt = ai_config.get('preprocess_prompt', '')
         self.get_logger().info(f"Using Gemini model: {self.gemini_model_name}")
         genai.configure(api_key=gemini_api_key)
 
+        # Gemini APIのJSONモードを有効化
+        self.generation_config = {"response_mime_type": "application/json"}
+
+    def preprocess_input(self, user_input):
+        if not self.preprocess_model:
+            return user_input
+        prompt = self.preprocess_prompt.replace('{input}', user_input)
+        response = self.get_gemini_response(prompt)
+        return response
+
     # Gemini APIでpromptを入力して返信を受け取る
     def get_gemini_response(self, prompt):
-        model = genai.GenerativeModel(self.gemini_model_name)
+        model = genai.GenerativeModel(self.gemini_model_name, generation_config=self.generation_config)
         try:
             response = model.generate_content(prompt)
             if response.parts:
@@ -61,7 +108,10 @@ class GeminiJsonPublisher(Node):
             self.get_logger().error("System prompt is not loaded. Cannot send command to Gemini.")
             return
 
-        full_prompt = self.system_prompt + "\nUser: " + user_input + "\nAssistant:\n"
+        # 前処理を挟む
+        processed_input = self.preprocess_input(user_input)
+        time.sleep(6)  # Gemini APIのRPM制限回避のため6秒待機
+        full_prompt = self.system_prompt + "\nUser: " + processed_input + "\nAssistant:\n"
         self.get_logger().info(f"Sending prompt to Gemini:\n{full_prompt}")
         
         raw_response = self.get_gemini_response(full_prompt)
@@ -69,8 +119,9 @@ class GeminiJsonPublisher(Node):
         if raw_response:
             self.get_logger().info(f"Gemini raw response:\n{raw_response}\n")
             try:
-                # JSONとしてパースできるか検証
-                parsed_json = json.loads(raw_response)
+                # コードブロックがあれば除去してからパース
+                json_str = extract_json_from_codeblock(raw_response)
+                parsed_json = json.loads(json_str)
                 # パースできたJSONを整形して再度文字列化（必要であれば）
                 formatted_json_string = json.dumps(parsed_json, indent=2) 
                 self.publish_json_command(formatted_json_string)
