@@ -1,13 +1,13 @@
-# PhysicalAI ROS2 + Gemini + TurtleBot3 Simulation
+# PhysicalAI ROS2 + Gemini + turtlesim
 
 ## 概要
 
-このプロジェクトは、Google Gemini APIとROS2を連携し、自然言語でTurtleBot3やturtlesimを制御できるシミュレーション環境をDocker上で提供します。
+このプロジェクトは、Google Gemini APIとROS2を連携し、自然言語でturtlesimを制御できるシミュレーション環境をDocker上で提供します。
 
 - Gemini APIによる自然言語→JSONコマンド変換
 - ROS2ノードによるコマンド解釈・ロボット制御
 - noVNC経由でGUIデスクトップにアクセス
-- TurtleBot3やturtlesimのシミュレーション
+- turtlesimのシミュレーション
 
 ---
 
@@ -110,30 +110,6 @@ ros2 run physics_ai gemini_json_publisher
 ## 注意事項・運用ルール
 - AI出力のJSON仕様（actionキー、move/turn/stopのみ）とインタプリタ実装は必ず一致させること。
 
----
-
-## トラブルシューティング
-
-- **No executable found**
-  - `colcon build --symlink-install` 後、`source ~/ros2_ws/install/setup.bash` を必ず実行
-  - `lib/physics_ai/` ディレクトリが無い場合は自動でシンボリックリンクが作成される（Dockerfileで対応済み）
-- **Permission denied**
-  - `ros2_ws`ディレクトリの権限を`ubuntu:ubuntu`に修正（Dockerfileで自動化済み）
-- **Geminiの返答がパースできない**
-  - JSONモード＋コードブロック除去で堅牢に対応済み
-- **ノード間通信ができない**
-  - トピック名・型・source忘れ・ノード起動状態を最優先で確認
-
----
-
-## 知見・ルールまとめ
-
-- AI設定やプロンプトはJSONで一元管理し、運用・拡張性を高める
-- Gemini APIはJSONモード＋前処理で堅牢にパース
-- ノード追加・修正時は必ず再ビルド・source
-- ノードごとに新しいターミナルを開き、毎回sourceを忘れずに
-- Dockerfileで権限修正・シンボリックリンク作成を自動化し、運用トラブルを未然に防ぐ
-- セキュリティ上、.envやAPIキーは.gitignore/.dockerignoreで管理
 
 ---
 
@@ -142,5 +118,3 @@ ros2 run physics_ai gemini_json_publisher
 - [ROS2公式ドキュメント](https://docs.ros.org/en/)
 
 ---
-
-何か問題があれば、エラーメッセージや状況を添えてご相談ください！
