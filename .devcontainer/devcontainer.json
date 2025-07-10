@@ -1,0 +1,20 @@
+{
+    "name": "ROS 2 Gazebo Dev Container (Compose)",
+    
+    // docker-compose.yml を指定
+    "dockerComposeFile": "../docker-compose.yml",
+
+    // 使用するサービス名を指定
+    "service": "ros_dev",
+
+    // 接続先のワークスペースとユーザーを指定
+    "workspaceFolder": "/home/vscode/ros2_ws",
+    "remoteUser": "vscode",
+
+    // 拡張機能などの設定
+    "extensions": [
+        "ms-vscode.cpptools",
+        "ms-python.python",
+        "ms-iot.vscode-ros"
+    ]
+}

@@ -48,4 +48,8 @@ qtcreator-*
 .#*
 
 # Catkin custom files
-CATKIN_IGNORE
+/.cursor
+.env
+/build
+/install
+/log

@@ -1,0 +1,19 @@
+services:
+  ai_robot_env:
+    build: .
+    image: my-ros2-desktop-ai
+    container_name: physicalai-Final
+    privileged: true
+    shm_size: '512m'
+    environment:
+      - RESOLUTION=1920x1080
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - WANDB_API_KEY=${WANDB_API_KEY}
+    ports:
+      - "6080:80"      # noVNC (Webブラウザ)
+      - "15900:5900"   # VNC
+      - "13389:3389"   # RDP
+    volumes:
+      - .:/home/ubuntu/physicalai-prac2
+    tty: true
+    stdin_open: true
